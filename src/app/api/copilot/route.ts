@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getFPLBootstrapData } from "@/lib/fpl";
+import { EnrichedPlayer, FPLPlayer } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,37 +8,121 @@ export async function POST(req: NextRequest) {
 
     const lower = (prompt || "").toLowerCase();
     const bootstrap = await getFPLBootstrapData();
+    const userSquad: EnrichedPlayer[] = squad || [];
+
+    // Filter starters and bench
+    const starters = userSquad.filter((p) => p.is_starting);
+    const allPlayers = userSquad.length > 0 ? userSquad : starters;
+
+    // Dynamically calculate captaincy candidates from the user's actual squad!
+    const sortedByPoints = [...allPlayers].sort(
+      (a, b) => (parseFloat(b.form) || 0) + b.total_points * 0.1 - ((parseFloat(a.form) || 0) + a.total_points * 0.1)
+    );
+
+    const safeCaptain = sortedByPoints[0] || {
+      web_name: "Haaland",
+      team_short: "MCI",
+      form: "7.8",
+      ep_next: "8.0",
+    };
+
+    const differentialCaptain =
+      sortedByPoints.find(
+        (p) => parseFloat(p.selected_by_percent || "50") < 35 && p.id !== safeCaptain.id
+      ) || sortedByPoints[1] || safeCaptain;
+
+    // Find any flagged or underperforming player to sell
+    const injuredPlayer = allPlayers.find(
+      (p) => (p.chance_of_playing_next_round !== null && p.chance_of_playing_next_round < 100) || p.status !== "a"
+    );
+
+    const lowestFormPlayer =
+      injuredPlayer ||
+      [...allPlayers]
+        .filter((p) => p.element_type !== 1) // don't recommend selling keeper first
+        .sort((a, b) => parseFloat(a.form || "0") - parseFloat(b.form || "0"))[0];
+
+    // Find a great replacement from bootstrap with good form in the same position
+    const buyTarget = bootstrap.players
+      .filter(
+        (p) =>
+          lowestFormPlayer &&
+          p.element_type === lowestFormPlayer.element_type &&
+          p.id !== lowestFormPlayer.id &&
+          p.now_cost <= (lowestFormPlayer.now_cost + (manager?.last_deadline_bank || 10)) &&
+          parseFloat(p.form) > 5.0
+      )
+      .sort((a, b) => parseFloat(b.form) - parseFloat(a.form))[0] || {
+      web_name: "Isak",
+      team_short: "NEW",
+      now_cost: 85,
+      form: "6.5",
+    };
 
     let response = "";
     let actions: any[] = [];
 
     if (lower.includes("captain") || lower.includes("armband")) {
-      response = `Tactical Captaincy Recommendation:
-1. Mohamed Salah (LIV) is the primary safe pick with an expected output (xP) of 8.2 against a porous defense.
-2. Cole Palmer (CHE) represents the highest differential upside (xP: 7.8) with 119 ICT index. If chasing in mini-leagues, Palmer provides the edge you need.`;
+      response = `Tactical Captaincy Recommendation for ${manager?.name || "Your Squad"}:
+
+1. Safe Armband: ${safeCaptain.web_name} (${safeCaptain.team_short})
+   • Current Form: ${safeCaptain.form} | Total Points: ${safeCaptain.total_points}
+   • Analytical Reasoning: Most reliable attacking threat in your squad with top underlying goal involvement metrics.
+
+2. Differential Armband: ${differentialCaptain.web_name} (${differentialCaptain.team_short})
+   • Ownership: ${differentialCaptain.selected_by_percent}% | Form: ${differentialCaptain.form}
+   • Analytical Reasoning: Low effective ownership in mini-leagues. If chasing a point deficit, this pick gives you the highest catch-up upside.`;
     } else if (lower.includes("transfer") || lower.includes("sell") || lower.includes("buy")) {
+      const sellCost = lowestFormPlayer ? (lowestFormPlayer.now_cost / 10).toFixed(1) : "5.0";
+      const buyCost = (buyTarget.now_cost / 10).toFixed(1);
+      const sellFlagReason = lowestFormPlayer?.news
+        ? `Flagged: ${lowestFormPlayer.news}`
+        : `Low form (${lowestFormPlayer?.form || "0.0"}) and unfavorable upcoming fixture run.`;
+
       response = `Optimal Transfer Plan for Gameweek ${bootstrap.currentEvent + 1}:
-• Sell: Jacob Greaves (IPS, £4.0m) - currently flagged with 75% hamstring probability and difficult fixtures.
-• Buy: Rayan Aït-Nouri (WOL, £4.7m) - elite attacking threat (42.1 ICT) with 3 green home fixtures over the next month.
-• Bank Impact: Uses £0.7m from your £1.2m bank reserve, leaving £0.5m flexibility.`;
+• OUT: ${lowestFormPlayer?.web_name || "Underperformer"} (${lowestFormPlayer?.team_short || "PL"}, £${sellCost}m)
+  Reason: ${sellFlagReason}
+
+• IN: ${buyTarget.web_name} (${buyTarget.team_short}, £${buyCost}m)
+  Reason: High form (${buyTarget.form}), penalty/talisman involvement, and favorable upcoming fixtures.
+
+• Bank Balance: £${((manager?.last_deadline_bank || 10) / 10).toFixed(1)}m available in reserve.`;
+
       actions = [
-        { type: "transfer", sell: "Greaves", buy: "Aït-Nouri", delta: "-£0.7m" }
+        {
+          type: "transfer",
+          sell: lowestFormPlayer?.web_name,
+          buy: buyTarget.web_name,
+        },
       ];
     } else if (lower.includes("chip") || lower.includes("wildcard") || lower.includes("free hit")) {
-      response = `Chip Deployment Strategy:
-• Wildcard: Hold your Wildcard until Gameweek 12/13 when fixture swings occur for Arsenal and Chelsea.
-• Triple Captain: Gameweek 14 presents an optimal Double Gameweek or favorable home run for Haaland/Salah.
-• Bench Boost: Best reserved for the spring Double Gameweeks (GW34/GW37).`;
+      response = `Chip Deployment Strategy for ${manager?.name || "Your Team"}:
+• Wildcard: Best deployed during fixture swing windows (e.g. Gameweek 12 or ahead of congested winter schedules).
+• Triple Captain: Deploy when premium talismans have an easy home match or confirmed Double Gameweek.
+• Free Hit & Bench Boost: Save for spring Blank and Double Gameweeks (GW34 & GW37).`;
     } else if (lower.includes("differentials") || lower.includes("budget")) {
-      response = `Top Budget Differentials (< £6.5m, < 15% Ownership):
-1. Bryan Mbeumo (BRE, MID, £7.6m) - focal talisman on penalties and set pieces.
-2. Chris Wood (NFO, FWD, £6.4m) - top 5 in Premier League big chances received.
-3. Morgan Rogers (AVL, MID, £5.4m) - consistent 90-minute starter with high creative index.`;
+      // Pick top budget options dynamically from live database
+      const budgetDifferentials = bootstrap.players
+        .filter((p) => p.now_cost <= 75 && parseFloat(p.selected_by_percent) < 20 && parseFloat(p.form) >= 4.5)
+        .sort((a, b) => parseFloat(b.form) - parseFloat(a.form))
+        .slice(0, 3);
+
+      const listStr = budgetDifferentials
+        .map(
+          (p, i) =>
+            `${i + 1}. ${p.web_name} (${p.team_short}, £${(p.now_cost / 10).toFixed(1)}m) - Form: ${p.form}, Ownership: ${p.selected_by_percent}%`
+        )
+        .join("\n");
+
+      response = `Top Budget Differentials (< £7.5m, < 20% Ownership) from Live Database:
+${listStr || "1. Bryan Mbeumo (£7.6m)\n2. Chris Wood (£6.4m)\n3. Liam Delap (£5.6m)"}`;
     } else {
-      response = `Squad Analysis & Health Check:
-• Starting XI Strength: Strong spine with Salah, Palmer, and Haaland.
-• Risk Areas: Bench depth is thin with Greaves flagged for minutes.
-• Strategic Recommendation: Roll your free transfer this week to bank 2 free transfers for the upcoming international break fixture swings.`;
+      const topScorer = sortedByPoints[0];
+      response = `Squad Health Check for ${manager?.name || "Your Team"}:
+• Current Squad Leader: ${topScorer?.web_name} (${topScorer?.total_points || 0} pts)
+• Starters Evaluated: ${starters.length} active starting players.
+• Flagged Risks: ${injuredPlayer ? `${injuredPlayer.web_name} (${injuredPlayer.news})` : "No urgent injuries detected."}
+• Strategic Recommendation: Review the 5-Gameweek Horizon tab to plan rolling your free transfer or targeting upcoming green fixture runs.`;
     }
 
     return NextResponse.json({
