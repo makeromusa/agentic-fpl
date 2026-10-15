@@ -228,7 +228,7 @@ export default function Home() {
                 </div>
               )}
 
-              {activeTab === "rivals" && <RivalSpy />}
+              {activeTab === "rivals" && <RivalSpy manager={manager} />}
               {activeTab === "horizon" && <HorizonPlanner plans={horizonPlans} />}
               {activeTab === "market" && (
                 <div className="space-y-6">

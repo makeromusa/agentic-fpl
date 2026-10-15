@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
     const playerMap = new Map<number, any>();
     bootstrap.players.forEach((p) => playerMap.set(p.id, p));
 
-    let managerSummary = {
+    let managerSummary: any = {
       id: 542192,
       name: "Asman's Title Contenders",
       player_first_name: "Asman",
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
       last_deadline_bank: 12, // £1.2M
       last_deadline_value: 1024, // £102.4M
       current_event: bootstrap.currentEvent,
+      leagues: [],
     };
 
     let picks: FPLPick[] = [];
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
               last_deadline_bank: entryData.last_deadline_bank,
               last_deadline_value: entryData.last_deadline_value,
               current_event: entryData.current_event,
+              leagues: entryData.leagues?.classic || [],
             };
 
             const picksRes = await fetch(
