@@ -10,14 +10,29 @@ interface ChatProps {
 }
 
 export default function CopilotChat({ squad, manager }: ChatProps) {
+  const managerName = manager?.player_first_name || manager?.name || "Manager";
+
   const [messages, setMessages] = useState<
     { role: "user" | "assistant"; text: string }[]
   >([
     {
       role: "assistant",
-      text: "Hello Asman! I am your Agentic FPL Manager. I have analyzed your 15-man squad, upcoming fixture difficulty, and mini-league rival stats. Ask me anything or try one of the prompt suggestions below!",
+      text: `Hello ${manager?.player_first_name || manager?.name || "Manager"}! I am your Agentic FPL Manager. I have analyzed your 15-man squad, upcoming fixture difficulty, and mini-league rival stats. Ask me anything or try one of the prompt suggestions below!`,
     },
   ]);
+
+  // Update greeting when a new manager syncs
+  React.useEffect(() => {
+    if (manager?.player_first_name || manager?.name) {
+      setMessages([
+        {
+          role: "assistant",
+          text: `Hello ${manager.player_first_name || manager.name}! I am your Agentic FPL Manager. I have loaded and analyzed your squad. Ask me anything or try one of the prompt suggestions below!`,
+        },
+      ]);
+    }
+  }, [manager?.id, manager?.name]);
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
