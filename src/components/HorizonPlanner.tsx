@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Calendar, ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
+import { Calendar, ArrowRight, CheckCircle2 } from "lucide-react";
 import { TransferPlan } from "@/lib/types";
 
 interface HorizonProps {
@@ -10,56 +10,90 @@ interface HorizonProps {
 
 export default function HorizonPlanner({ plans }: HorizonProps) {
   return (
-    <div className="bg-[#170220] border border-[#330b3d] rounded-2xl p-5 shadow-xl flex flex-col gap-5">
-      <div>
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-fpl-cyan" /> 5-Gameweek Horizon & Chip Trajectory
-        </h3>
-        <p className="text-xs text-gray-400">Multi-week transfer roadmap with optimal chip windows</p>
+    <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-5 shadow-xl flex flex-col gap-5">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <span className="w-7 h-7 rounded-lg bg-fpl-cyan/10 border border-fpl-cyan/20 flex items-center justify-center shrink-0">
+              <Calendar className="w-4 h-4 text-fpl-cyan" />
+            </span>
+            5-Gameweek Horizon &amp; Chip Trajectory
+          </h3>
+          <p className="text-xs text-[var(--text-muted)] mt-1 ml-9">
+            Multi-week transfer roadmap with optimal chip windows
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {plans.map((plan) => (
+      {/* Gameweek Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {plans.map((plan, idx) => (
           <div
             key={plan.gameweek}
-            className="bg-[#1e0329] border border-[#330b3d] hover:border-fpl-cyan/60 rounded-xl p-4 flex flex-col justify-between transition-colors shadow-md relative overflow-hidden"
+            className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] hover:border-fpl-cyan/40 rounded-xl flex flex-col transition-colors duration-200 overflow-hidden"
           >
-            {plan.chip_suggested && (
-              <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-600 text-black text-[10px] font-black px-2 py-0.5 rounded-bl shadow">
-                CHIP: {plan.chip_suggested.toUpperCase()}
+            {/* GW Label Bar */}
+            <div className="flex items-center justify-between px-3 pt-3 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-md bg-fpl-cyan/10 flex items-center justify-center text-[10px] font-black text-fpl-cyan">
+                  {plan.gameweek}
+                </span>
+                <span className="text-[11px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                  GW{plan.gameweek}
+                </span>
               </div>
-            )}
+              {plan.chip_suggested && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-400/15 text-amber-300 border border-amber-400/25 uppercase tracking-wide">
+                  {plan.chip_suggested}
+                </span>
+              )}
+            </div>
 
-            <div>
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                Gameweek {plan.gameweek}
-              </div>
+            {/* Divider */}
+            <div className="mx-3 h-px bg-[var(--border-subtle)]" />
 
+            {/* Transfer Content */}
+            <div className="px-3 py-3 flex-1">
               {plan.transfers.length === 0 ? (
-                <div className="py-6 flex flex-col items-center justify-center text-center">
-                  <CheckCircle2 className="w-6 h-6 text-fpl-green mb-1 opacity-80" />
-                  <span className="text-xs font-bold text-gray-200">Roll Free Transfer</span>
-                  <span className="text-[10px] text-gray-400 mt-0.5">Bank 2 free transfers for next week</span>
+                <div className="flex flex-col items-center justify-center text-center py-4 gap-1.5">
+                  <div className="w-8 h-8 rounded-full bg-fpl-green/10 border border-fpl-green/20 flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4 text-fpl-green" />
+                  </div>
+                  <span className="text-xs font-bold text-[var(--text-primary)]">Roll Transfer</span>
+                  <span className="text-[10px] text-[var(--text-muted)] leading-snug">
+                    Bank free transfer for next week
+                  </span>
                 </div>
               ) : (
-                <div className="space-y-3 py-2">
-                  {plan.transfers.map((t, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="text-rose-400 line-through">OUT: {t.sell.web_name}</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-gray-500" />
-                        <span className="text-fpl-green font-bold">IN: {t.buy.web_name}</span>
+                <div className="space-y-3">
+                  {plan.transfers.map((t, i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <span className="text-rose-400 font-semibold truncate max-w-[70px]">
+                          {t.sell.web_name}
+                        </span>
+                        <ArrowRight className="w-3 h-3 text-[var(--text-muted)] shrink-0" />
+                        <span className="text-fpl-green font-bold truncate max-w-[70px]">
+                          {t.buy.web_name}
+                        </span>
                       </div>
-                      <p className="text-[11px] text-gray-400 leading-snug">{t.reason}</p>
+                      <p className="text-[10px] text-[var(--text-muted)] leading-snug line-clamp-2">
+                        {t.reason}
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="pt-3 mt-3 border-t border-[#330b3d] flex justify-between items-center text-xs">
-              <span className="text-gray-400">Projected Pts:</span>
-              <span className="font-mono font-bold text-fpl-green">{plan.projected_points} pts</span>
+            {/* Footer */}
+            <div className="mx-3 mb-3 pt-2 border-t border-[var(--border-subtle)] flex justify-between items-center">
+              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide">Proj. Pts</span>
+              <span className="font-mono text-sm font-black text-fpl-green">
+                {plan.projected_points}
+                <span className="text-[10px] font-medium text-[var(--text-muted)] ml-0.5">pts</span>
+              </span>
             </div>
           </div>
         ))}

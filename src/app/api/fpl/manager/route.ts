@@ -6,92 +6,124 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const managerId = searchParams.get("id");
 
+  if (!managerId || managerId.trim() === "") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "No FPL Team ID provided. Please enter your numeric Team ID.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const trimmed = managerId.trim();
+  const isNumeric = /^\d+$/.test(trimmed);
+
+  if (!isNumeric) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `FPL requires your numeric Team ID (e.g. '320069'), not a squad name. You can find this in your browser URL on fantasy.premierleague.com: '/entry/YOUR_ID/event/...'`,
+      },
+      { status: 400 }
+    );
+  }
+
   try {
     const bootstrap = await getFPLBootstrapData();
     const playerMap = new Map<number, any>();
     bootstrap.players.forEach((p) => playerMap.set(p.id, p));
 
-    let managerSummary: any = {
-      id: 542192,
-      name: "Asman's Title Contenders",
-      player_first_name: "Asman",
-      player_last_name: "Makero",
-      summary_overall_points: 624,
-      summary_overall_rank: 48210,
-      last_deadline_bank: 12, // £1.2M
-      last_deadline_value: 1024, // £102.4M
-      current_event: bootstrap.currentEvent,
-      leagues: [],
+    // 1. Fetch live manager profile with no-store to avoid stale data
+    const entryRes = await fetch(`https://fantasy.premierleague.com/api/entry/${trimmed}/`, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      cache: "no-store",
+    });
+
+    if (!entryRes.ok) {
+      if (entryRes.status === 404) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Team ID #${trimmed} was not found on the official Fantasy Premier League servers. Please check your ID and retry.`,
+          },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: `FPL Server returned status ${entryRes.status}. Please try again in a moment.`,
+        },
+        { status: entryRes.status }
+      );
+    }
+
+    const entryData = await entryRes.json();
+
+    // 2. Filter & prioritize private/custom leagues
+    const rawLeagues = entryData.leagues?.classic || [];
+    const filteredLeagues = rawLeagues
+      .filter((l: any) => {
+        // Exclude generic massive public leagues
+        const isSystem = l.league_type === "s" && (l.short_name === "overall" || l.short_name?.startsWith("s"));
+        return !isSystem;
+      })
+      .sort((a: any, b: any) => {
+        // Private mini-leagues first
+        const aPrivate = a.admin_entry !== null ? 1 : 0;
+        const bPrivate = b.admin_entry !== null ? 1 : 0;
+        return bPrivate - aPrivate;
+      });
+
+    const managerSummary = {
+      id: entryData.id,
+      name: entryData.name,
+      player_first_name: entryData.player_first_name,
+      player_last_name: entryData.player_last_name,
+      summary_overall_points: entryData.summary_overall_points,
+      summary_overall_rank: entryData.summary_overall_rank,
+      last_deadline_bank: entryData.last_deadline_bank,
+      last_deadline_value: entryData.last_deadline_value,
+      current_event: entryData.current_event || bootstrap.currentEvent,
+      leagues: filteredLeagues.length > 0 ? filteredLeagues : rawLeagues,
     };
 
+    // 3. Fetch latest active squad picks
     let picks: FPLPick[] = [];
+    const targetEvent = entryData.current_event || bootstrap.currentEvent;
 
-    // Support both numeric Team ID and text Squad Names!
-    if (managerId && managerId.trim() !== "") {
-      const trimmed = managerId.trim();
-      const isNumeric = /^\d+$/.test(trimmed);
-
-      if (isNumeric) {
-        // Attempt live fetch with numeric ID
-        try {
-          const entryRes = await fetch(`https://fantasy.premierleague.com/api/entry/${trimmed}/`, {
+    // Try target event, then fallback down if game has not started that event yet
+    for (let gw = targetEvent; gw >= 1; gw--) {
+      try {
+        const picksRes = await fetch(
+          `https://fantasy.premierleague.com/api/entry/${trimmed}/event/${gw}/picks/`,
+          {
             headers: { "User-Agent": "Mozilla/5.0" },
-          });
-
-          if (entryRes.ok) {
-            const entryData = await entryRes.json();
-            managerSummary = {
-              id: entryData.id,
-              name: entryData.name,
-              player_first_name: entryData.player_first_name,
-              player_last_name: entryData.player_last_name,
-              summary_overall_points: entryData.summary_overall_points,
-              summary_overall_rank: entryData.summary_overall_rank,
-              last_deadline_bank: entryData.last_deadline_bank,
-              last_deadline_value: entryData.last_deadline_value,
-              current_event: entryData.current_event,
-              leagues: entryData.leagues?.classic || [],
-            };
-
-            const picksRes = await fetch(
-              `https://fantasy.premierleague.com/api/entry/${trimmed}/event/${entryData.current_event}/picks/`,
-              { headers: { "User-Agent": "Mozilla/5.0" } }
-            );
-
-            if (picksRes.ok) {
-              const picksData = await picksRes.json();
-              picks = picksData.picks;
-            }
+            cache: "no-store",
           }
-        } catch (e) {
-          console.warn("Live entry fetch fallback to template squad:", e);
+        );
+
+        if (picksRes.ok) {
+          const picksData = await picksRes.json();
+          if (picksData.picks && picksData.picks.length > 0) {
+            picks = picksData.picks;
+            break;
+          }
         }
-      } else {
-        // User typed a Squad Name (e.g. "Gunners FC", "Asman's XI")
-        managerSummary.name = trimmed;
+      } catch (err) {
+        console.warn(`Failed fetching picks for GW ${gw}:`, err);
       }
     }
 
-    // Default template squad if picks not populated
     if (picks.length === 0) {
-      const defaultIds = [
-        101, // Raya (GK)
-        201, 202, 203, 204, // Gabriel, TAA, Gvardiol, Robinson (DEF)
-        301, 302, 303, 304, // Salah, Palmer, Saka, Mbeumo (MID)
-        401, 402, // Haaland, Wood (FWD)
-        102, // Fabianski (Bench GK)
-        305, // Rogers (Bench 1)
-        403, // Delap (Bench 2)
-        205, // Greaves (Bench 3)
-      ];
-
-      picks = defaultIds.map((id, index) => ({
-        element: id,
-        position: index + 1,
-        is_captain: id === 301, // Salah (C)
-        is_vice_captain: id === 302, // Palmer (VC)
-        multiplier: id === 301 ? 2 : index < 11 ? 1 : 0,
-      }));
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Could not retrieve squad picks for team #${trimmed}. The team may have no picks registered yet this season.`,
+        },
+        { status: 404 }
+      );
     }
 
     const squad: EnrichedPlayer[] = picks
@@ -108,7 +140,7 @@ export async function GET(req: NextRequest) {
       })
       .filter(Boolean);
 
-    // Compute horizon plans
+    // Compute horizon plans based on latest squad
     const horizonPlans = calculateHorizonStrategy(bootstrap.currentEvent, squad);
 
     return NextResponse.json({
