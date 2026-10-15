@@ -32,27 +32,31 @@ ${topFormPlayers}
 
 You are an expert FPL advisor. Answer the manager's question with specific, actionable advice based on THEIR squad, THEIR budget, and LIVE FPL data. Use concrete player names and stats. Be concise but thorough. Think like a top 10k FPL manager. You can answer ANY question — about transfers, captaincy, chips, differentials, specific players, formations, injuries, fixtures, strategy — not just predefined topics.`;
 
-    // If Gemini API key is available, use it
-    if (apiKey) {
-      const { GoogleGenerativeAI } = await import('@google/generative-ai');
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      
-      const result = await model.generateContent([
-        { text: systemPrompt },
-        { text: `Manager's question: ${prompt}` }
-      ]);
-      
-      const response = result.response.text();
-      return NextResponse.json({ success: true, response, powered_by: 'gemini' });
+    // If Gemini API key is available, attempt to use it with graceful fallback
+    if (apiKey && apiKey.startsWith("AIza")) {
+      try {
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        
+        const result = await model.generateContent([
+          { text: systemPrompt },
+          { text: `Manager's question: ${prompt}` }
+        ]);
+        
+        const response = result.response.text();
+        return NextResponse.json({ success: true, response, powered_by: 'gemini' });
+      } catch (geminiErr: any) {
+        console.warn('Gemini API call failed, using intelligent squad fallback:', geminiErr?.message);
+      }
     }
 
-    // Intelligent fallback without Gemini — use real squad data
+    // Intelligent fallback without Gemini — use real squad or top form players
     const lower = (prompt || '').toLowerCase();
-    const allPlayers = squad || [];
+    const allPlayers = squad && squad.length > 0 ? squad : bootstrap.players.slice(0, 30);
     const starters = allPlayers.filter((p: any) => p.is_starting);
     const sortedByForm = [...allPlayers].sort((a: any, b: any) => parseFloat(b.form || '0') - parseFloat(a.form || '0'));
-    const captain = allPlayers.find((p: any) => p.is_captain) || sortedByForm[0];
+    const captain = (squad && squad.find((p: any) => p.is_captain)) || sortedByForm[0];
     const injured = allPlayers.filter((p: any) => p.chance_of_playing_next_round !== null && p.chance_of_playing_next_round < 100);
     const lowestForm = [...allPlayers].filter(p => p.element_type !== 1).sort((a: any, b: any) => parseFloat(a.form || '0') - parseFloat(b.form || '0'))[0];
     
