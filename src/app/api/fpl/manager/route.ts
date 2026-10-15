@@ -25,39 +25,48 @@ export async function GET(req: NextRequest) {
 
     let picks: FPLPick[] = [];
 
-    // Attempt live fetch if a specific manager ID was supplied
+    // Support both numeric Team ID and text Squad Names!
     if (managerId && managerId.trim() !== "") {
-      try {
-        const entryRes = await fetch(`https://fantasy.premierleague.com/api/entry/${managerId}/`, {
-          headers: { "User-Agent": "Mozilla/5.0" },
-        });
+      const trimmed = managerId.trim();
+      const isNumeric = /^\d+$/.test(trimmed);
 
-        if (entryRes.ok) {
-          const entryData = await entryRes.json();
-          managerSummary = {
-            id: entryData.id,
-            name: entryData.name,
-            player_first_name: entryData.player_first_name,
-            player_last_name: entryData.player_last_name,
-            summary_overall_points: entryData.summary_overall_points,
-            summary_overall_rank: entryData.summary_overall_rank,
-            last_deadline_bank: entryData.last_deadline_bank,
-            last_deadline_value: entryData.last_deadline_value,
-            current_event: entryData.current_event,
-          };
+      if (isNumeric) {
+        // Attempt live fetch with numeric ID
+        try {
+          const entryRes = await fetch(`https://fantasy.premierleague.com/api/entry/${trimmed}/`, {
+            headers: { "User-Agent": "Mozilla/5.0" },
+          });
 
-          const picksRes = await fetch(
-            `https://fantasy.premierleague.com/api/entry/${managerId}/event/${entryData.current_event}/picks/`,
-            { headers: { "User-Agent": "Mozilla/5.0" } }
-          );
+          if (entryRes.ok) {
+            const entryData = await entryRes.json();
+            managerSummary = {
+              id: entryData.id,
+              name: entryData.name,
+              player_first_name: entryData.player_first_name,
+              player_last_name: entryData.player_last_name,
+              summary_overall_points: entryData.summary_overall_points,
+              summary_overall_rank: entryData.summary_overall_rank,
+              last_deadline_bank: entryData.last_deadline_bank,
+              last_deadline_value: entryData.last_deadline_value,
+              current_event: entryData.current_event,
+            };
 
-          if (picksRes.ok) {
-            const picksData = await picksRes.json();
-            picks = picksData.picks;
+            const picksRes = await fetch(
+              `https://fantasy.premierleague.com/api/entry/${trimmed}/event/${entryData.current_event}/picks/`,
+              { headers: { "User-Agent": "Mozilla/5.0" } }
+            );
+
+            if (picksRes.ok) {
+              const picksData = await picksRes.json();
+              picks = picksData.picks;
+            }
           }
+        } catch (e) {
+          console.warn("Live entry fetch fallback to template squad:", e);
         }
-      } catch (e) {
-        console.warn("Live entry fetch fallback to template squad:", e);
+      } else {
+        // User typed a Squad Name (e.g. "Gunners FC", "Asman's XI")
+        managerSummary.name = trimmed;
       }
     }
 

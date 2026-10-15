@@ -93,15 +93,15 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Search Manager ID */}
+          {/* Search Manager ID or Squad Name */}
           <form onSubmit={handleSearch} className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative flex-1 sm:w-48">
+            <div className="relative flex-1 sm:w-64">
               <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={managerId}
                 onChange={(e) => setManagerId(e.target.value)}
-                placeholder="FPL Team ID..."
+                placeholder="Team ID or Squad Name..."
                 className="w-full bg-[#1e0329] border border-[#330b3d] rounded-xl pl-8 pr-3 py-1.5 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-fpl-green font-mono"
               />
             </div>
