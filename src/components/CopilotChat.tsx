@@ -52,11 +52,11 @@ export default function CopilotChat({ squad, manager }: ChatProps) {
   }, [messages, loading]);
 
   const quickPrompts = [
-    'Who should I captain this week?',
-    'Suggest my best transfer for next GW',
-    'Should I play my Wildcard now or hold?',
-    'Find budget differentials under £6.5m',
-    "What's my biggest injury risk?",
+    'Who should I captain for next GW?',
+    'Should I buy Cherki or Rogers?',
+    'Find top budget differentials under £7.0m',
+    'Suggest my best transfer upgrade',
+    'When should I deploy my Wildcard?',
   ];
 
   const handleSend = async (textToSend?: string) => {
@@ -109,10 +109,10 @@ export default function CopilotChat({ squad, manager }: ChatProps) {
               ONLINE
             </span>
           </h3>
-          <p className="text-[11px] text-[var(--text-muted)] truncate">Context-aware · Powered by live FPL data</p>
+          <p className="text-[11px] text-[var(--text-muted)] truncate">7-Factor Tactical Engine · Live FPL Data</p>
         </div>
-        <div title="Add GEMINI_API_KEY to unlock full AI" className="text-[10px] text-[var(--text-muted)] flex items-center gap-1 cursor-help">
-          <Zap className="w-3 h-3" /> Gemini
+        <div className="text-[10px] text-[#00ff87] bg-[#00ff87]/10 px-2 py-0.5 rounded-full border border-[#00ff87]/25 flex items-center gap-1 font-mono">
+          <Zap className="w-3 h-3 text-[#00ff87]" /> Active
         </div>
       </div>
 
