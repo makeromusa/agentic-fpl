@@ -1,0 +1,18 @@
+{
+  "name": "Agentic FPL Intelligence Platform",
+  "short_name": "Agentic FPL",
+  "description": "Tactical AI copilot, mini-league rival radar, and multi-gameweek transfer optimizer for Fantasy Premier League.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

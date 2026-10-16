@@ -7,6 +7,9 @@ import HorizonPlanner from "@/components/HorizonPlanner";
 import PriceWatch from "@/components/PriceWatch";
 import PepRoulette from "@/components/PepRoulette";
 import CopilotChat from "@/components/CopilotChat";
+import LiveMatchdayRadar from "@/components/LiveMatchdayRadar";
+import TransferSimulator from "@/components/TransferSimulator";
+import FixtureTicker from "@/components/FixtureTicker";
 import { EnrichedPlayer, PricePrediction, RotationRisk, TransferPlan } from "@/lib/types";
 import {
   Trophy,
@@ -24,6 +27,7 @@ import {
   Hash,
   Users,
   User,
+  Calculator,
   BarChart3,
   Zap,
 } from "lucide-react";
@@ -409,8 +413,11 @@ function ManagerStatsBar({ manager }: { manager: any }) {
 const TABS = [
   { id: "pitch", label: "Pitch & Squad", icon: Shield },
   { id: "rivals", label: "Rival Spy", icon: Trophy },
-  { id: "horizon", label: "Horizon Planner", icon: Calendar },
-  { id: "market", label: "Price Watch", icon: TrendingUp },
+  { id: "matchday", label: "Live Matchday", icon: Activity },
+  { id: "simulator", label: "Transfer Sandbox & RMT", icon: Calculator },
+  { id: "fixtures", label: "Fixture Heatmap", icon: Calendar },
+  { id: "horizon", label: "Horizon Planner", icon: TrendingUp },
+  { id: "market", label: "Price Watch & Pep Roulette", icon: Zap },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -777,6 +784,9 @@ export default function Home() {
               )}
 
               {activeTab === "rivals" && <RivalSpy manager={manager} />}
+              {activeTab === "matchday" && <LiveMatchdayRadar squad={squad} manager={manager} />}
+              {activeTab === "simulator" && <TransferSimulator squad={squad} manager={manager} />}
+              {activeTab === "fixtures" && <FixtureTicker />}
               {activeTab === "horizon" && <HorizonPlanner plans={horizonPlans} />}
               {activeTab === "market" && (
                 <div className="space-y-5">
