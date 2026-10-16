@@ -33,21 +33,32 @@ ${topFormPlayers}
 You are an expert FPL advisor. Answer the manager's question with specific, actionable advice based on THEIR squad, THEIR budget, and LIVE FPL data. Use concrete player names and stats. Be concise but thorough. Think like a top 10k FPL manager. You can answer ANY question — about transfers, captaincy, chips, differentials, specific players, formations, injuries, fixtures, strategy — not just predefined topics.`;
 
     // If Gemini API key is available, attempt to use it with graceful fallback
-    if (apiKey && apiKey.startsWith("AIza")) {
+    if (apiKey && apiKey.trim() !== "") {
       try {
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-        
-        const result = await model.generateContent([
-          { text: systemPrompt },
-          { text: `Manager's question: ${prompt}` }
-        ]);
-        
-        const response = result.response.text();
-        return NextResponse.json({ success: true, response, powered_by: 'gemini' });
-      } catch (geminiErr: any) {
-        console.warn('Gemini API call failed, using intelligent squad fallback:', geminiErr?.message);
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
+        const result = await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: `${systemPrompt}\n\nManager's question: ${prompt}`,
+        });
+        const responseText = result.text;
+        if (responseText) {
+          return NextResponse.json({ success: true, response: responseText, powered_by: 'gemini' });
+        }
+      } catch (genaiErr: any) {
+        try {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(apiKey.trim());
+          const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+          const result = await model.generateContent([
+            { text: systemPrompt },
+            { text: `Manager's question: ${prompt}` }
+          ]);
+          const response = result.response.text();
+          return NextResponse.json({ success: true, response, powered_by: 'gemini' });
+        } catch (legacyErr: any) {
+          console.warn('Gemini API call failed, using intelligent squad fallback:', legacyErr?.message);
+        }
       }
     }
 
